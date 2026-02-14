@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>5-Card Draw Poker vs Machine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(ellipse at center, #1a4a2e 0%, #0d2b1a 100%);
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      user-select: none;
+    }
+
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 2px;
+      color: #f5c542;
+      text-shadow: 0 0 20px rgba(245,197,66,0.5);
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+
+    /* ── Chip bar ── */
+    .chips-bar {
+      display: flex;
+      gap: 30px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 50px;
+      padding: 10px 28px;
+      margin-bottom: 18px;
+      font-size: 1rem;
+    }
+    .chip-item { display: flex; align-items: center; gap: 8px; }
+    .chip-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: bold;
+    }
+    .chip-player  { background: #2196f3; border: 2px solid #90caf9; }
+    .chip-machine { background: #e53935; border: 2px solid #ef9a9a; }
+    .chip-pot     { background: #f5c542; border: 2px solid #fff176; color: #000; }
+
+    /* ── Table sections ── */
+    .section-label {
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+
+    /* ── Hand containers ── */
+    .hand-area {
+      background: rgba(0,0,0,0.2);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    /* ── Cards ── */
+    .cards-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      width: 80px; height: 115px;
+      border-radius: 10px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      font-weight: bold;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, outline 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      background: #fff;
+      color: #222;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+
+    .card .rank-top {
+      position: absolute;
+      top: 6px; left: 8px;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+    .card .rank-bottom {
+      position: absolute;
+      bottom: 6px; right: 8px;
+      font-size: 0.9rem;
+      transform: rotate(180deg);
+      line-height: 1;
+    }
+    .card .suit-center {
+      font-size: 2rem;
+    }
+
+    .card.red  { color: #d32f2f; }
+    .card.black { color: #111; }
+
+    /* face-down */
+    .card.face-down {
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      cursor: default;
+    }
+    .card.face-down .rank-top,
+    .card.face-down .rank-bottom,
+    .card.face-down .suit-center { display: none; }
+    .card.face-down::after {
+      content: '🂠';
+      font-size: 3rem;
+      opacity: 0.3;
+    }
+
+    /* selected for discard */
+    .card.selected {
+      transform: translateY(-14px);
+      outline: 3px solid #f5c542;
+      box-shadow: 0 0 18px rgba(245,197,66,0.7);
+    }
+
+    /* matching highlight */
+    .card.match {
+      outline: 3px solid #00e676;
+      box-shadow: 0 0 18px rgba(0,230,118,0.7);
+    }
+    .card.match.selected {
+      outline: 3px solid #f5c542;
+    }
+
+    /* ── Betting row ── */
+    .bet-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    button {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-deal   { background: #f5c542; color: #000; }
+    .btn-bet    { background: #2196f3; color: #fff; }
+    .btn-fold   { background: #e53935; color: #fff; }
+    .btn-draw   { background: #43a047; color: #fff; }
+    .btn-check  { background: #7b1fa2; color: #fff; }
+    .btn-allin  { background: #ff6f00; color: #fff; }
+
+    /* ── Status box ── */
+    .status-box {
+      background: rgba(0,0,0,0.4);
+      border-radius: 12px;
+      padding: 12px 24px;
+      text-align: center;
+      min-height: 52px;
+      max-width: 600px;
+      width: 100%;
+      margin-bottom: 14px;
+      font-size: 1.05rem;
+    }
+    .status-box .result {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #f5c542;
+    }
+    .status-box .hand-name {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    /* ── Match legend ── */
+    .legend {
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .legend span.dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    /* ── Phase indicator ── */
+    .phase-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 2px 10px;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    /* ── History ── */
+    .history-section {
+      max-width: 600px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .history-section h3 {
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      color: #aaa;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .history-list {
+      background: rgba(0,0,0,0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      max-height: 100px;
+      overflow-y: auto;
+      color: #ccc;
+    }
+    .history-list .win  { color: #69f0ae; }
+    .history-list .lose { color: #ff5252; }
+    .history-list .tie  { color: #f5c542; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .card { width: 60px; height: 88px; font-size: 1rem; }
+      .card .suit-center { font-size: 1.5rem; }
+      h1 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>♠ Poker vs Machine ♥</h1>
+<p class="subtitle">5-Card Draw — Click cards to discard, then Draw</p>
+
+<div class="chips-bar">
+  <div class="chip-item">
+    <div class="chip-icon chip-player">YOU</div>
+    <span>$<span id="playerChips">1000</span></span>
+  </div>
+  <div class="chip-item">
+    <div class="chip-icon chip-pot">POT</div>
+    <span>$<span id="potChips">0</span></span>
+  </div>
+  <div class="chip-item">
+    <div class="chip-icon chip-machine">BOT</div>
+    <span>$<span id="machineChips">1000</span></span>
+  </div>
+</div>
+
+<div class="phase-tag" id="phaseTag">WAITING</div>
+
+<!-- Machine hand -->
+<div class="hand-area" id="machineArea">
+  <div class="section-label">Machine's Hand</div>
+  <div class="cards-row" id="machineCards"></div>
+  <div class="hand-name" id="machineHandName" style="margin-top:8px; color:#aaa; font-size:0.85rem;"></div>
+</div>
+
+<!-- Status -->
+<div class="status-box" id="statusBox">
+  <div>Press <strong>Deal</strong> to start a new round.</div>
+</div>
+
+<!-- Match legend (shown after reveal) -->
+<div class="legend" id="matchLegend" style="display:none;">
+  <span class="dot" style="background:#00e676;"></span> Green outline = same rank or suit in both hands
+</div>
+
+<!-- Player hand -->
+<div class="hand-area" id="playerArea">
+  <div class="section-label">Your Hand — <span style="color:#f5c542;">click cards to discard</span></div>
+  <div class="cards-row" id="playerCards"></div>
+  <div class="hand-name" id="playerHandName" style="margin-top:8px; color:#aaa; font-size:0.85rem;"></div>
+</div>
+
+<!-- Action buttons -->
+<div class="bet-row" id="actionRow">
+  <button class="btn-deal" id="btnDeal" onclick="startRound()">Deal</button>
+</div>
+
+<!-- Round history -->
+<div class="history-section">
+  <h3>Round History</h3>
+  <div class="history-list" id="historyList">No rounds yet.</div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const SUITS  = ['♠','♥','♦','♣'];
+const RANKS  = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const RANK_V = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
+
+let deck = [];
+let playerHand = [];
+let machineHand = [];
+let playerChips  = 1000;
+let machineChips = 1000;
+let pot = 0;
+let phase = 'idle'; // idle | bet1 | draw | bet2 | showdown
+let currentBet = 20;
+let history = [];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DECK
+// ─────────────────────────────────────────────────────────────────────────────
+function buildDeck() {
+  deck = [];
+  for (const s of SUITS) for (const r of RANKS) deck.push({rank: r, suit: s});
+  shuffle(deck);
+}
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+function deal(n) {
+  return deck.splice(0, n);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HAND EVALUATION
+// ─────────────────────────────────────────────────────────────────────────────
+function evalHand(hand) {
+  const ranks = hand.map(c => RANK_V[c.rank]).sort((a,b) => b - a);
+  const suits  = hand.map(c => c.suit);
+  const isFlush    = new Set(suits).size === 1;
+  const isStraight = checkStraight(ranks);
+  const counts     = {};
+  ranks.forEach(r => counts[r] = (counts[r]||0) + 1);
+  const freq = Object.values(counts).sort((a,b) => b - a);
+
+  if (isFlush && isStraight && ranks[0] === 14) return {score:9, name:'Royal Flush'};
+  if (isFlush && isStraight)                    return {score:8, name:'Straight Flush'};
+  if (freq[0] === 4)                             return {score:7, name:'Four of a Kind'};
+  if (freq[0] === 3 && freq[1] === 2)            return {score:6, name:'Full House'};
+  if (isFlush)                                   return {score:5, name:'Flush'};
+  if (isStraight)                                return {score:4, name:'Straight'};
+  if (freq[0] === 3)                             return {score:3, name:'Three of a Kind'};
+  if (freq[0] === 2 && freq[1] === 2)            return {score:2, name:'Two Pair'};
+  if (freq[0] === 2)                             return {score:1, name:'One Pair'};
+  return {score:0, name:'High Card'};
+}
+
+function checkStraight(sortedRanks) {
+  // Normal
+  const normal = sortedRanks[0] - sortedRanks[4] === 4 && new Set(sortedRanks).size === 5;
+  // Wheel A-2-3-4-5
+  const wheel  = JSON.stringify(sortedRanks) === JSON.stringify([14,5,4,3,2]);
+  return normal || wheel;
+}
+
+function compareHands(ph, mh) {
+  const pe = evalHand(ph), me = evalHand(mh);
+  if (pe.score > me.score) return 1;
+  if (pe.score < me.score) return -1;
+  // Tiebreak by sorted ranks
+  const pRanks = ph.map(c=>RANK_V[c.rank]).sort((a,b)=>b-a);
+  const mRanks = mh.map(c=>RANK_V[c.rank]).sort((a,b)=>b-a);
+  for (let i = 0; i < 5; i++) {
+    if (pRanks[i] > mRanks[i]) return 1;
+    if (pRanks[i] < mRanks[i]) return -1;
+  }
+  return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MACHINE AI — decides which cards to keep
+// ─────────────────────────────────────────────────────────────────────────────
+function machineDiscard() {
+  const ranks  = machineHand.map(c => c.rank);
+  const suits  = machineHand.map(c => c.suit);
+  const counts = {};
+  ranks.forEach(r => counts[r] = (counts[r]||0) + 1);
+
+  // Keep all if strong
+  const ev = evalHand(machineHand);
+  if (ev.score >= 4) return []; // straight+ → keep all
+
+  // Full house / two pair / three of a kind → keep them
+  const keepRanks = Object.entries(counts).filter(([,v])=>v>=2).map(([r])=>r);
+  if (keepRanks.length > 0) {
+    return machineHand.map((_,i) => !keepRanks.includes(ranks[i]) ? i : null).filter(x=>x!==null);
+  }
+
+  // Flush draw: 4 same suit
+  const suitCounts = {};
+  suits.forEach(s => suitCounts[s] = (suitCounts[s]||0)+1);
+  const flushSuit = Object.entries(suitCounts).find(([,v])=>v>=4);
+  if (flushSuit) {
+    return machineHand.map((_,i) => suits[i] !== flushSuit[0] ? i : null).filter(x=>x!==null);
+  }
+
+  // Discard 1 lowest
+  const sortedIdx = [...machineHand.keys()].sort((a,b)=>RANK_V[machineHand[a].rank]-RANK_V[machineHand[b].rank]);
+  return [sortedIdx[0]];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATCHING — same rank OR same suit between player and machine
+// ─────────────────────────────────────────────────────────────────────────────
+function findMatches() {
+  const pRanks = new Set(playerHand.map(c=>c.rank));
+  const pSuits = new Set(playerHand.map(c=>c.suit));
+  const mRanks = new Set(machineHand.map(c=>c.rank));
+  const mSuits = new Set(machineHand.map(c=>c.suit));
+
+  const pMatch = playerHand.map(c => mRanks.has(c.rank) || mSuits.has(c.suit));
+  const mMatch = machineHand.map(c => pRanks.has(c.rank) || pSuits.has(c.suit));
+  return { pMatch, mMatch };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI RENDERING
+// ─────────────────────────────────────────────────────────────────────────────
+function cardHTML(card, selected, isMatch, faceDown) {
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  let cls = 'card' + (isRed ? ' red' : ' black');
+  if (faceDown) cls += ' face-down';
+  if (selected)  cls += ' selected';
+  if (isMatch && !faceDown) cls += ' match';
+  return `
+    <div class="${cls}">
+      <span class="rank-top">${card.rank}<br>${card.suit}</span>
+      <span class="suit-center">${card.suit}</span>
+      <span class="rank-bottom">${card.rank}<br>${card.suit}</span>
+    </div>`;
+}
+
+function renderHands(showMachine = false, matchData = null) {
+  const mContainer = document.getElementById('machineCards');
+  const pContainer = document.getElementById('playerCards');
+
+  // Machine
+  mContainer.innerHTML = machineHand.map((c, i) => {
+    const m = matchData ? matchData.mMatch[i] : false;
+    return cardHTML(c, false, m, !showMachine);
+  }).join('');
+
+  // Player — click to toggle discard
+  pContainer.innerHTML = playerHand.map((c, i) => {
+    const m = matchData ? matchData.pMatch[i] : false;
+    const sel = selectedCards.has(i);
+    return `<div onclick="toggleCard(${i})" data-i="${i}">` + cardHTML(c, sel, m, false) + '</div>';
+  }).join('');
+
+  document.getElementById('playerHandName').textContent =
+    phase === 'showdown' ? '→ ' + evalHand(playerHand).name : '';
+  document.getElementById('machineHandName').textContent =
+    phase === 'showdown' ? '→ ' + evalHand(machineHand).name : '';
+}
+
+let selectedCards = new Set();
+
+function toggleCard(i) {
+  if (phase !== 'draw') return;
+  if (selectedCards.has(i)) selectedCards.delete(i);
+  else selectedCards.add(i);
+  renderHands(false);
+}
+
+function setPhase(p) {
+  phase = p;
+  const labels = {
+    idle: 'WAITING', bet1: 'ANTE / BET', draw: 'DISCARD & DRAW',
+    bet2: 'FINAL BET', showdown: 'SHOWDOWN'
+  };
+  document.getElementById('phaseTag').textContent = labels[p] || p.toUpperCase();
+}
+
+function updateChipsUI() {
+  document.getElementById('playerChips').textContent  = playerChips;
+  document.getElementById('machineChips').textContent = machineChips;
+  document.getElementById('potChips').textContent     = pot;
+}
+
+function setStatus(html) {
+  document.getElementById('statusBox').innerHTML = html;
+}
+
+function renderActions(btns) {
+  const row = document.getElementById('actionRow');
+  const defs = {
+    deal:  `<button class="btn-deal"  onclick="startRound()">Deal</button>`,
+    bet:   `<button class="btn-bet"   onclick="playerBet(${currentBet})">Bet $${currentBet}</button>`,
+    raise: `<button class="btn-bet"   onclick="playerBet(${currentBet*2})">Raise $${currentBet*2}</button>`,
+    check: `<button class="btn-check" onclick="playerCheck()">Check</button>`,
+    fold:  `<button class="btn-fold"  onclick="playerFold()">Fold</button>`,
+    draw:  `<button class="btn-draw"  onclick="playerDraw()">Draw (${selectedCards.size} discarded)</button>`,
+    allin: `<button class="btn-allin" onclick="playerBet(playerChips)">All-In $${playerChips}</button>`,
+  };
+  row.innerHTML = btns.map(b => defs[b]).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GAME FLOW
+// ─────────────────────────────────────────────────────────────────────────────
+function startRound() {
+  if (playerChips <= 0 || machineChips <= 0) {
+    setStatus('<div>Game over! Refresh to restart.</div>');
+    return;
+  }
+  selectedCards.clear();
+  buildDeck();
+  playerHand  = deal(5);
+  machineHand = deal(5);
+  pot = 0;
+  document.getElementById('matchLegend').style.display = 'none';
+
+  // Ante
+  const ante = Math.min(10, playerChips, machineChips);
+  playerChips  -= ante;
+  machineChips -= ante;
+  pot += ante * 2;
+  updateChipsUI();
+
+  setPhase('bet1');
+  renderHands(false);
+  setStatus(`<div>Ante $${ante} posted. Your turn to <strong>Bet, Check, or Fold</strong>.</div>`);
+  renderActions(['bet','raise','check','fold','allin']);
+}
+
+function playerBet(amount) {
+  const a = Math.min(amount, playerChips);
+  playerChips -= a;
+  pot += a;
+  // Machine call
+  const mc = Math.min(a, machineChips);
+  machineChips -= mc;
+  pot += mc;
+  updateChipsUI();
+
+  if (phase === 'bet1') {
+    setPhase('draw');
+    setStatus('<div>Bets placed. Select cards to <strong>discard</strong>, then click <strong>Draw</strong>.</div>');
+    renderHands(false);
+    renderActions(['draw']);
+  } else {
+    goToShowdown();
+  }
+}
+
+function playerCheck() {
+  if (phase === 'bet1') {
+    setPhase('draw');
+    setStatus('<div>Checked. Select cards to <strong>discard</strong>, then click <strong>Draw</strong>.</div>');
+    renderHands(false);
+    renderActions(['draw']);
+  } else {
+    goToShowdown();
+  }
+}
+
+function playerFold() {
+  machineChips += pot;
+  pot = 0;
+  updateChipsUI();
+  addHistory('fold', 'You folded.', '');
+  setPhase('idle');
+  setStatus('<div class="result">You folded. Machine wins the pot.</div>');
+  document.getElementById('machineHandName').textContent = '';
+  document.getElementById('playerHandName').textContent  = '';
+  renderHands(true);
+  renderActions(['deal']);
+}
+
+function playerDraw() {
+  // Player replaces selected cards
+  const toDiscard = [...selectedCards];
+  toDiscard.forEach(i => { playerHand[i] = deal(1)[0]; });
+  selectedCards.clear();
+
+  // Machine draws
+  const mDiscard = machineDiscard();
+  mDiscard.forEach(i => { machineHand[i] = deal(1)[0]; });
+
+  setPhase('bet2');
+  renderHands(false);
+  setStatus(`<div>Draw phase done (you replaced ${toDiscard.length}, machine replaced ${mDiscard.length}). Final bet!</div>`);
+  renderActions(['bet','raise','check','fold','allin']);
+}
+
+function goToShowdown() {
+  setPhase('showdown');
+  const matchData = findMatches();
+  renderHands(true, matchData);
+  document.getElementById('matchLegend').style.display = 'block';
+
+  const result = compareHands(playerHand, machineHand);
+  const pEv = evalHand(playerHand);
+  const mEv = evalHand(machineHand);
+
+  let msg, cls;
+  if (result === 1) {
+    playerChips += pot;
+    msg = `You win $${pot}! 🏆`;
+    cls = 'win';
+  } else if (result === -1) {
+    machineChips += pot;
+    msg = `Machine wins $${pot}!`;
+    cls = 'lose';
+  } else {
+    const half = Math.floor(pot / 2);
+    playerChips  += half;
+    machineChips += (pot - half);
+    msg = "It's a tie!";
+    cls = 'tie';
+  }
+
+  pot = 0;
+  updateChipsUI();
+  addHistory(cls, msg, `You: ${pEv.name} | Bot: ${mEv.name}`);
+
+  setStatus(`
+    <div class="result">${msg}</div>
+    <div class="hand-name">You: ${pEv.name} &nbsp;|&nbsp; Machine: ${mEv.name}</div>
+    <div class="hand-name" style="color:#00e676; margin-top:4px;">Green cards share rank or suit with opponent</div>
+  `);
+  renderActions(['deal']);
+}
+
+function addHistory(cls, msg, detail) {
+  history.unshift({cls, msg, detail});
+  const el = document.getElementById('historyList');
+  el.innerHTML = history.slice(0,10).map(h =>
+    `<div class="${h.cls}">● ${h.msg}${h.detail ? ' — '+h.detail : ''}</div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+updateChipsUI();
+</script>
+</body>
+</html>

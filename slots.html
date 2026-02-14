@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slot Machine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #1a0033 0%, #0d001a 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    /* ── Title ── */
+    h1 {
+      font-size: 2.4rem;
+      letter-spacing: 4px;
+      color: #f5c542;
+      text-shadow: 0 0 30px rgba(245,197,66,0.8), 0 0 60px rgba(245,197,66,0.3);
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .tagline {
+      font-size: 0.8rem;
+      letter-spacing: 3px;
+      color: #aaa;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    /* ── Machine body ── */
+    .machine {
+      background: linear-gradient(180deg, #2a0050 0%, #1a0035 100%);
+      border: 4px solid #7b1fa2;
+      border-radius: 28px;
+      padding: 30px 28px 26px;
+      box-shadow:
+        0 0 0 6px #4a0080,
+        0 0 40px rgba(123,31,162,0.6),
+        0 20px 60px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    /* ── Coins display ── */
+    .coins-bar {
+      display: flex;
+      gap: 20px;
+      background: rgba(0,0,0,0.4);
+      border-radius: 40px;
+      padding: 8px 24px;
+      font-size: 1rem;
+      color: #f5c542;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .coins-bar span { color: #fff; margin-left: 4px; }
+
+    /* ── Reels window ── */
+    .reels-window {
+      background: #000;
+      border: 4px solid #f5c542;
+      border-radius: 16px;
+      padding: 0;
+      display: flex;
+      gap: 0;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(245,197,66,0.4), inset 0 0 20px rgba(0,0,0,0.8);
+      width: 100%;
+      position: relative;
+    }
+
+    /* Center line indicator */
+    .reels-window::before,
+    .reels-window::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 3px;
+      background: rgba(245,197,66,0.5);
+      z-index: 10;
+      pointer-events: none;
+    }
+    .reels-window::before { top: calc(50% - 52px); }
+    .reels-window::after  { top: calc(50% + 49px); }
+
+    /* ── Each reel ── */
+    .reel {
+      flex: 1;
+      height: 300px;
+      overflow: hidden;
+      position: relative;
+      border-right: 2px solid #1a0033;
+    }
+    .reel:last-child { border-right: none; }
+
+    .reel-strip {
+      display: flex;
+      flex-direction: column;
+      transition: transform 0s;
+    }
+    .reel-strip.spinning {
+      transition: transform 0.08s linear;
+    }
+
+    .reel-item {
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      flex-shrink: 0;
+      background: #111;
+    }
+
+    /* ── Win flash ── */
+    .reel.win-flash {
+      animation: winFlash 0.5s ease-in-out 4;
+    }
+    @keyframes winFlash {
+      0%, 100% { background: #000; }
+      50%       { background: rgba(245,197,66,0.25); }
+    }
+
+    /* ── Bet row ── */
+    .bet-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .bet-label { font-size: 0.85rem; color: #aaa; }
+    .bet-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 2px solid #7b1fa2;
+      background: rgba(123,31,162,0.3);
+      color: #f5c542;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    .bet-btn:hover:not(:disabled) { background: rgba(123,31,162,0.6); }
+    .bet-btn:disabled { opacity: 0.3; cursor: default; }
+    .bet-value {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #f5c542;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    /* ── Spin button ── */
+    .spin-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #f5c542, #e6a800);
+      color: #000;
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: 3px;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 4px 20px rgba(245,197,66,0.5);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .spin-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(245,197,66,0.7);
+    }
+    .spin-btn:active:not(:disabled) { transform: scale(0.97); }
+    .spin-btn:disabled {
+      background: linear-gradient(135deg, #555, #333);
+      color: #888;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    /* ── Message ── */
+    .message {
+      font-size: 1.1rem;
+      font-weight: bold;
+      min-height: 32px;
+      text-align: center;
+      letter-spacing: 1px;
+      transition: opacity 0.3s;
+    }
+    .message.win      { color: #f5c542; text-shadow: 0 0 20px rgba(245,197,66,0.8); }
+    .message.jackpot  { color: #ff6f00; text-shadow: 0 0 30px rgba(255,111,0,0.9); font-size: 1.5rem; animation: pulse 0.4s ease-in-out infinite alternate; }
+    .message.lose     { color: #888; }
+    .message.near     { color: #69f0ae; }
+
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to   { transform: scale(1.06); }
+    }
+
+    /* ── Pay table ── */
+    .paytable {
+      width: 100%;
+      background: rgba(0,0,0,0.35);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 0.78rem;
+    }
+    .paytable h3 {
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      color: #aaa;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .pay-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .pay-row:last-child { border-bottom: none; }
+    .pay-row .symbols { letter-spacing: 2px; font-size: 0.9rem; }
+    .pay-row .payout  { color: #f5c542; font-weight: bold; }
+
+    /* ── Confetti ── */
+    .confetti-piece {
+      position: fixed;
+      width: 10px; height: 10px;
+      pointer-events: none;
+      z-index: 999;
+      border-radius: 2px;
+    }
+
+    /* ── History ── */
+    .history {
+      width: 100%;
+      max-width: 420px;
+      margin-top: 16px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: #aaa;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .history .h-win  { color: #f5c542; }
+    .history .h-jack { color: #ff6f00; font-weight: bold; }
+    .history .h-lose { color: #555; }
+  </style>
+</head>
+<body>
+
+<h1>🎰 SLOTS 🎰</h1>
+<p class="tagline">Press Spin &amp; Win Big</p>
+
+<div class="machine">
+
+  <!-- Coins -->
+  <div class="coins-bar">
+    💰 Coins: <span id="coinsDisplay">200</span>
+    &nbsp;|&nbsp;
+    🏆 Best: <span id="bestDisplay">0</span>
+  </div>
+
+  <!-- Reels -->
+  <div class="reels-window">
+    <div class="reel" id="reel0"><div class="reel-strip" id="strip0"></div></div>
+    <div class="reel" id="reel1"><div class="reel-strip" id="strip1"></div></div>
+    <div class="reel" id="reel2"><div class="reel-strip" id="strip2"></div></div>
+  </div>
+
+  <!-- Bet -->
+  <div class="bet-row">
+    <span class="bet-label">BET:</span>
+    <button class="bet-btn" id="betDown" onclick="changeBet(-5)">−</button>
+    <div class="bet-value" id="betDisplay">10</div>
+    <button class="bet-btn" id="betUp" onclick="changeBet(5)">+</button>
+    <span class="bet-label" style="margin-left:4px;">coins</span>
+  </div>
+
+  <!-- Message -->
+  <div class="message" id="message">Good luck! 🍀</div>
+
+  <!-- Spin -->
+  <button class="spin-btn" id="spinBtn" onclick="spin()">SPIN</button>
+
+  <!-- Pay table -->
+  <div class="paytable">
+    <h3>Pay Table (×bet)</h3>
+    <div class="pay-row"><span class="symbols">🍒🍒🍒</span><span class="payout">×3</span></div>
+    <div class="pay-row"><span class="symbols">🍋🍋🍋</span><span class="payout">×5</span></div>
+    <div class="pay-row"><span class="symbols">🍊🍊🍊</span><span class="payout">×7</span></div>
+    <div class="pay-row"><span class="symbols">🍇🍇🍇</span><span class="payout">×10</span></div>
+    <div class="pay-row"><span class="symbols">🔔🔔🔔</span><span class="payout">×15</span></div>
+    <div class="pay-row"><span class="symbols">💎💎💎</span><span class="payout">×25</span></div>
+    <div class="pay-row"><span class="symbols">🎰🎰🎰</span><span class="payout">×100 JACKPOT!</span></div>
+    <div class="pay-row"><span class="symbols">Any two match</span><span class="payout">×1</span></div>
+  </div>
+
+</div>
+
+<!-- History -->
+<div class="history" id="historyEl">Spin to start your history...</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+const SYMBOLS = ['🍒','🍋','🍊','🍇','🔔','💎','🎰'];
+// Weight: common ones appear more, jackpot symbol is rare
+const WEIGHTED = [
+  '🍒','🍒','🍒','🍒',
+  '🍋','🍋','🍋',
+  '🍊','🍊','🍊',
+  '🍇','🍇',
+  '🔔','🔔',
+  '💎',
+  '🎰'
+];
+
+const PAYOUTS = {
+  '🍒': 3, '🍋': 5, '🍊': 7, '🍇': 10,
+  '🔔': 15, '💎': 25, '🎰': 100
+};
+
+let coins   = 200;
+let bet     = 10;
+let best    = 0;
+let spinning = false;
+let history  = [];
+
+// ── Build reel strip (repeated for scroll illusion) ──
+function buildStrips() {
+  for (let r = 0; r < 3; r++) {
+    const strip = document.getElementById(`strip${r}`);
+    strip.innerHTML = '';
+    // 30 random items for scrolling
+    for (let i = 0; i < 30; i++) {
+      const div = document.createElement('div');
+      div.className = 'reel-item';
+      div.textContent = randSymbol();
+      strip.appendChild(div);
+    }
+  }
+}
+
+function randSymbol() {
+  return WEIGHTED[Math.floor(Math.random() * WEIGHTED.length)];
+}
+
+// ── Spin ──
+async function spin() {
+  if (spinning) return;
+  if (coins < bet) {
+    setMsg('Not enough coins! Lower bet or refresh.', 'lose');
+    return;
+  }
+
+  spinning = true;
+  coins -= bet;
+  updateUI();
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('betDown').disabled = true;
+  document.getElementById('betUp').disabled   = true;
+  setMsg('Spinning...', '');
+
+  // Pick final symbols
+  const results = [randSymbol(), randSymbol(), randSymbol()];
+
+  // Animate each reel with increasing delays
+  const promises = [0, 1, 2].map(i => animateReel(i, results[i], 600 + i * 500));
+  await Promise.all(promises);
+
+  // Evaluate
+  evaluate(results);
+
+  spinning = false;
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('betDown').disabled = false;
+  document.getElementById('betUp').disabled   = false;
+}
+
+// ── Animate one reel ──
+function animateReel(reelIdx, finalSymbol, duration) {
+  return new Promise(resolve => {
+    const strip = document.getElementById(`strip${reelIdx}`);
+    const reel  = document.getElementById(`reel${reelIdx}`);
+    const itemH = 100;
+
+    // Rebuild strip with random items, place final symbol at the visible center
+    strip.innerHTML = '';
+    // We'll scroll so index 12 is centered (offset = 12 * 100 - 100 = 1100)
+    const targetIdx = 12;
+    for (let i = 0; i < 25; i++) {
+      const div = document.createElement('div');
+      div.className = 'reel-item';
+      div.textContent = i === targetIdx ? finalSymbol : randSymbol();
+      strip.appendChild(div);
+    }
+
+    // Start from top
+    strip.style.transition = 'none';
+    strip.style.transform  = 'translateY(0)';
+
+    // The reel shows 3 items (300px). Center item offset = reel height/2 - itemH/2 = 100
+    // We want index targetIdx at center → translateY = -(targetIdx * itemH - 100)
+    const endY = -(targetIdx * itemH - 100);
+
+    // Fast spin first then slow land
+    let startTime = null;
+
+    function frame(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Easing: fast then decelerate
+      const eased = easeOutQuart(progress);
+      const currentY = eased * endY;
+
+      strip.style.transition = 'none';
+      strip.style.transform  = `translateY(${currentY}px)`;
+
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        strip.style.transform = `translateY(${endY}px)`;
+        resolve();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  });
+}
+
+function easeOutQuart(t) {
+  return 1 - Math.pow(1 - t, 4);
+}
+
+// ── Evaluate result ──
+function evaluate(results) {
+  const [a, b, c] = results;
+  let payout = 0;
+  let msgText = '';
+  let msgCls  = 'lose';
+  let isJackpot = false;
+
+  if (a === b && b === c) {
+    // Three of a kind
+    const mult = PAYOUTS[a] || 3;
+    payout = bet * mult;
+    if (a === '🎰') {
+      isJackpot = true;
+      msgText = `🎰 JACKPOT! +${payout} coins!`;
+      msgCls  = 'jackpot';
+    } else {
+      msgText = `${a}${a}${a} Three of a Kind! +${payout} coins!`;
+      msgCls  = 'win';
+    }
+    // Flash reels
+    for (let i = 0; i < 3; i++) document.getElementById(`reel${i}`).classList.add('win-flash');
+    setTimeout(() => {
+      for (let i = 0; i < 3; i++) document.getElementById(`reel${i}`).classList.remove('win-flash');
+    }, 2200);
+  } else if (a === b || b === c || a === c) {
+    // Two match
+    payout = bet * 1;
+    msgText = `Two match! +${payout} coin${payout===1?'':'s'}`;
+    msgCls  = 'near';
+  } else {
+    msgText = 'No match. Try again!';
+    msgCls  = 'lose';
+  }
+
+  coins += payout;
+  if (coins > best) best = coins;
+
+  // Refill if broke
+  if (coins <= 0) {
+    coins = 50;
+    msgText += ' — Refilled 50 coins!';
+  }
+
+  updateUI();
+  setMsg(msgText, msgCls);
+  addHistory(results, payout, msgCls);
+
+  if (isJackpot) launchConfetti();
+}
+
+// ── UI helpers ──
+function updateUI() {
+  document.getElementById('coinsDisplay').textContent = coins;
+  document.getElementById('bestDisplay').textContent  = best;
+  document.getElementById('betDisplay').textContent   = bet;
+}
+
+function setMsg(text, cls) {
+  const el = document.getElementById('message');
+  el.textContent  = text;
+  el.className    = 'message ' + cls;
+}
+
+function changeBet(delta) {
+  bet = Math.max(5, Math.min(bet + delta, 50, coins));
+  document.getElementById('betDisplay').textContent = bet;
+}
+
+function addHistory(results, payout, cls) {
+  const label = payout > 0 ? `+${payout}` : '-' + bet;
+  const clsMap = { jackpot: 'h-jack', win: 'h-win', near: 'h-win', lose: 'h-lose' };
+  history.unshift({ symbols: results.join(' '), label, cls: clsMap[cls] || 'h-lose' });
+  const el = document.getElementById('historyEl');
+  el.innerHTML = history.slice(0, 12).map(h =>
+    `<span class="${h.cls}">${h.symbols} ${h.label}</span>  `
+  ).join('');
+}
+
+// ── Confetti ──
+function launchConfetti() {
+  const colors = ['#f5c542','#ff6f00','#e53935','#43a047','#1e88e5','#ab47bc'];
+  for (let i = 0; i < 80; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `
+      left: ${Math.random() * 100}vw;
+      top: -10px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      transform: rotate(${Math.random()*360}deg);
+      animation: fall ${1.5 + Math.random() * 2}s linear forwards;
+    `;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+
+  // Inject keyframes once
+  if (!document.getElementById('confettiStyle')) {
+    const s = document.createElement('style');
+    s.id = 'confettiStyle';
+    s.textContent = `
+      @keyframes fall {
+        to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+}
+
+// ── Init ──
+buildStrips();
+updateUI();
+</script>
+</body>
+</html>
