@@ -1,0 +1,17 @@
+model:
+  name: claude-opus-4-6
+  max_tokens: 16000
+
+paths:
+  inputs:
+    source_of_truth: inputs/source_of_truth/
+    code: inputs/code/
+  outputs:
+    reports: outputs/reports/
+
+report:
+  filename_prefix: qc_report
+  include_executive_summary: true
+  include_logic_qc: true
+  include_structure_qc: true
+  include_recommendations: true
